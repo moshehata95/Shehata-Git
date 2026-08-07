@@ -91,6 +91,21 @@ pub enum ActionCaller {
     Mcp,
 }
 
+impl ActionCaller {
+    /// How this caller is named in the activity trail.
+    ///
+    /// Whether a push came from a person or from a coding agent is the single
+    /// most important fact in the trail for this tool, and it is known exactly
+    /// here - the caller is declared at the boundary, not guessed.
+    pub fn label(self) -> &'static str {
+        match self {
+            Self::Desktop => "from the app",
+            Self::Cli => "from the command line",
+            Self::Mcp => "by a coding agent",
+        }
+    }
+}
+
 #[derive(Debug, Clone, Deserialize)]
 pub struct RepositoryActionRequest {
     pub repository_id: String,
@@ -150,6 +165,9 @@ struct NetworkPlan {
     /// True when the branch has never been published: the push must create
     /// the remote branch and record it as upstream in one step.
     set_upstream: bool,
+    /// Which surface asked for this. `None` for reads that no one initiated
+    /// as a state change, such as a sync preview.
+    caller: Option<ActionCaller>,
 }
 
 pub async fn status(repository_id: &str) -> Result<RepositoryActionStatus> {
@@ -780,6 +798,7 @@ async fn prepare_network_plan(
         ahead,
         behind,
         set_upstream,
+        caller: push_caller,
     })
 }
 
@@ -808,6 +827,7 @@ async fn finish_network_action(
                 &plan.branch,
                 &head_commit,
                 subject.as_deref(),
+                plan.caller,
             );
             write_network_audit(
                 db_path,
@@ -839,10 +859,11 @@ async fn finish_network_action(
                 action,
                 &format!(
                     "{} failed",
-                    if action == "push" {
-                        "Normal push"
-                    } else {
-                        "Fast-forward pull"
+                    match (action, plan.caller) {
+                        ("push", Some(caller)) => format!("Normal push {}", caller.label()),
+                        ("push", None) => "Normal push".to_string(),
+                        (_, Some(caller)) => format!("Fast-forward pull {}", caller.label()),
+                        _ => "Fast-forward pull".to_string(),
                     }
                 ),
                 Some(
@@ -1030,11 +1051,16 @@ fn network_action_lines(
     branch: &str,
     head_commit: &str,
     subject: Option<&str>,
+    caller: Option<ActionCaller>,
 ) -> (String, String) {
-    let label = if action == "push" {
+    let base = if action == "push" {
         "Normal push"
     } else {
         "Fast-forward pull"
+    };
+    let label = match caller {
+        Some(caller) => format!("{base} {}", caller.label()),
+        None => base.to_string(),
     };
     let short_commit = head_commit.chars().take(7).collect::<String>();
     let title = subject
@@ -1696,16 +1722,47 @@ mod tests {
             "main",
             "0545b97a1c2d3e4f",
             Some("docs: mark shipped roadmap items"),
+            Some(ActionCaller::Desktop),
         );
         assert_eq!(title, "docs: mark shipped roadmap items");
         // The force-push guarantee has to stay visible in the trail.
-        assert_eq!(detail, "Normal push · Shehata Git · main · 0545b97");
+        assert_eq!(
+            detail,
+            "Normal push from the app · Shehata Git · main · 0545b97"
+        );
 
         // A repository with no readable subject still names the action.
         let (title, detail) =
-            network_action_lines("pull_ff_only", "site", "master", "abcdef1234", None);
+            network_action_lines("pull_ff_only", "site", "master", "abcdef1234", None, None);
         assert_eq!(title, "Fast-forward pull completed");
         assert_eq!(detail, "Fast-forward pull · site · master · abcdef1");
+    }
+
+    #[test]
+    fn the_trail_says_when_a_coding_agent_pushed() {
+        // The whole point of this tool is knowing which identity acted. A push
+        // an agent made must never be indistinguishable from one you made.
+        let (_, agent) = network_action_lines(
+            "push",
+            "Landing Page",
+            "main",
+            "aaaaaaa1111",
+            Some("feat: add pricing"),
+            Some(ActionCaller::Mcp),
+        );
+        let (_, human) = network_action_lines(
+            "push",
+            "Landing Page",
+            "main",
+            "aaaaaaa1111",
+            Some("feat: add pricing"),
+            Some(ActionCaller::Desktop),
+        );
+        assert!(
+            agent.starts_with("Normal push by a coding agent"),
+            "{agent}"
+        );
+        assert_ne!(agent, human);
     }
 
     #[test]

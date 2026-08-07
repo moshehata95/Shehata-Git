@@ -51,6 +51,13 @@ impl CommandOutput {
     }
 }
 
+/// Environment marker set on every git process this application starts.
+///
+/// The audit hooks installed into a repository check for it: an operation the
+/// app performs is already recorded by the app itself, so the hook must stay
+/// quiet and let it be logged once.
+pub const INTERNAL_MARKER: &str = "SHEHATA_INTERNAL_GIT";
+
 /// A runner bound to a specific `git` executable path.
 #[derive(Debug, Clone)]
 pub struct GitRunner {
@@ -112,6 +119,10 @@ impl GitRunner {
             // come from helpers, not terminals.
             .env("GIT_TERMINAL_PROMPT", "0")
             .env("GIT_ASKPASS", "echo")
+            // Audit hooks record operations that happen outside this app. This
+            // marks the ones that happen inside it, so an action taken here is
+            // recorded once by the app rather than twice.
+            .env(INTERNAL_MARKER, "1")
             .stdin(std::process::Stdio::null())
             .stdout(std::process::Stdio::piped())
             .stderr(std::process::Stdio::piped())

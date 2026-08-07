@@ -117,6 +117,8 @@ pub async fn link_repository_at(
         None,
     )?;
 
+    install_audit_hooks(&git, &plan.repository).await;
+
     Ok(RoutingResult {
         repository_id: plan.repository.id,
         helper_path: helper_path.to_string_lossy().into_owned(),
@@ -320,6 +322,12 @@ pub async fn unlink_repository_at(
     }
 
     remove_marker(&repository)?;
+    // Take the audit hooks back out; anything the user wrote stays.
+    if let Some(hooks_root) = hooks_root_of(&repository) {
+        if let Err(error) = crate::hooks::remove_hooks(Path::new(hooks_root)) {
+            tracing::warn!("could not remove audit hooks: {error}");
+        }
+    }
     {
         let db = Database::open_at(db_path)?;
         // Only mark backups whose config keys were actually restored.
@@ -529,6 +537,50 @@ fn audit(
         },
     )?;
     Ok(())
+}
+
+/// Where git will look for this repository's hooks.
+///
+/// A linked worktree keeps its own `git_dir` but shares the common directory,
+/// and that is where git reads hooks from — so both must resolve to one set.
+fn hooks_root_of(repository: &RepositoryRecord) -> Option<&str> {
+    repository
+        .git_common_dir
+        .as_deref()
+        .or(repository.git_dir.as_deref())
+}
+
+/// Install the hooks that record operations performed outside this app.
+///
+/// Failure here never fails linking: routing is what the user asked for, and
+/// the trail is a supporting feature. Every outcome is logged, because a hook
+/// that silently does not run would make the trail claim a completeness it
+/// does not have.
+async fn install_audit_hooks(git: &GitRunner, repository: &RepositoryRecord) {
+    let Some(hooks_root) = hooks_root_of(repository) else {
+        tracing::warn!("no git directory recorded; audit hooks not installed");
+        return;
+    };
+
+    // `core.hooksPath` redirects hooks elsewhere - husky and several company
+    // setups use it. Writing into `.git/hooks` there would look successful and
+    // record nothing at all.
+    let configured =
+        read_local_config_values(git, Path::new(&repository.canonical_path), "core.hooksPath")
+            .await
+            .unwrap_or_default();
+    if !crate::hooks::hooks_directory_is_active(configured.first().map(String::as_str)) {
+        tracing::warn!(
+            "core.hooksPath is set for this repository; audit hooks were not installed and \
+             operations outside the app will not be recorded"
+        );
+        return;
+    }
+
+    match crate::hooks::install_hooks(Path::new(hooks_root), &repository.id) {
+        Ok(()) => tracing::info!("audit hooks installed"),
+        Err(error) => tracing::warn!("could not install audit hooks: {error}"),
+    }
 }
 
 #[cfg(test)]

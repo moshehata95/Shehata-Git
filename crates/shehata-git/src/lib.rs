@@ -18,4 +18,4 @@ pub use repository::{
     DiscoveredRepository, RepositoryDiscoveryError, RepositoryRemote, RepositoryRemoteProtocol,
     WorktreeStatus,
 };
-pub use runner::{CommandOutput, GitError, GitRunner};
+pub use runner::{CommandOutput, GitError, GitRunner, INTERNAL_MARKER};

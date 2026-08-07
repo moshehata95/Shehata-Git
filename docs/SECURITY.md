@@ -57,6 +57,19 @@ values are backed up before a change and restored exactly during unlink.
 Repository operations never change the GitHub CLI default account. A user may
 change that default through a separate, explicit, confirmed account action.
 
+## Files written into your repositories
+
+Enabling routing for a repository writes two things into its `.git` directory:
+the credential helper configuration, and audit hooks (`pre-push`,
+`post-commit`, `post-merge`) that record operations performed outside this app.
+
+The hooks contain no credentials. They call the `shehata` command line with the
+repository id and the branch and commit git reports, and every call is guarded
+so that a failure cannot break the git operation you asked for. A hook you
+already had is preserved - the managed block is inserted after the shebang and
+never exits - and unlinking removes the block while leaving your own content in
+place.
+
 ## Push policies
 
 A repository is either **Allow normal push** (humans and coding agents may

@@ -14,6 +14,7 @@ pub mod audit;
 pub mod diagnostics;
 pub mod doctor;
 pub mod error;
+pub mod hooks;
 pub mod integrations;
 pub mod locking;
 pub mod models;

@@ -3,6 +3,48 @@
 This file records verified engineering milestones without machine-specific
 paths, account names, repository names, credentials, or private test data.
 
+## 2026-08-06 - v0.1.23 recording work done outside the app
+
+Found by using the tool: a push to another repository from a terminal left
+nothing in the trail but `credential_served`. The database confirmed the shape
+of it - the repository pushed through the app had 27 `push` events, and every
+repository pushed from a terminal had none.
+
+Git hooks are the only place git states the operation, so that is where this
+had to be solved. Three problems in the first implementation were found and
+fixed before shipping:
+
+- **Double counting.** The app runs `git push` itself, which triggers
+  `pre-push`, so an action taken in the app would have been recorded twice -
+  once by the app and once by its own hook. The git runner now sets
+  `SHEHATA_INTERNAL_GIT` on every process it starts and the hook stands down
+  when it sees it. Proved against a real repository: the count went from zero
+  to one, not to two.
+
+- **Appending after an early exit.** The block was appended to the end of an
+  existing hook. A hook that ends in `exit 0` is ordinary, and the block would
+  never have run. It is now inserted immediately after the shebang.
+
+- **`core.hooksPath` ignored.** When it is set, `.git/hooks` is not read at
+  all. Installation would have reported success and recorded nothing, which is
+  worse than not offering the feature - the trail would claim a completeness it
+  did not have. It is now detected and skipped with a warning.
+
+Also corrected: hooks are written to the common git directory, so a linked
+worktree shares one set rather than silently having none.
+
+The `hook-event` command treats everything it receives as untrusted, because it
+is called from a shell script: the repository id must be a canonical UUID, the
+event must be one of the three hooks installed, and free text is redacted,
+stripped of control characters, and length-bounded before it is stored. Entries
+are shaped like the app's own, so the trail reads as one history.
+
+Verified end to end against a real repository rather than only in unit tests: a
+terminal push recorded one correctly-shaped entry, the same push with the
+internal marker recorded nothing, and a pre-existing user hook still ran.
+
+126 Rust tests pass.
+
 ## 2026-08-03 - v0.1.22 CI and supply chain
 
 - Added `scripts/check-versions.mjs`, in Node rather than shell so it runs the

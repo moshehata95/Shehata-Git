@@ -4,6 +4,34 @@ All notable changes to Shehata Git are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and versions follow
 [Semantic Versioning](https://semver.org/).
 
+## 0.1.23 - 2026-08-06
+
+### Added
+
+- **Operations performed outside the app are now recorded.** A repository
+  pushed from a terminal, an IDE, or a coding agent used to show only
+  "Credentials served" in the activity trail, because git's credential protocol
+  never says what the operation is - a push, a fetch, and an `ls-remote` all
+  look identical to it. Audit hooks are now installed when routing is enabled,
+  and they report the push, commit, or merge with the same branch, commit, and
+  change that the app records for its own actions.
+
+  The hooks are written to run inside someone else's repository:
+
+  - They never fail an operation. Every command is guarded, so a missing
+    binary, a locked database, or an uninstalled app cannot break a push.
+  - They never disturb an existing hook. The block is inserted after the
+    shebang and never calls `exit`, so a hook you already had keeps working -
+    including one that ends in `exit 0`.
+  - They never read stdin. `pre-push` receives ref updates there and your own
+    hook may be reading them; branch and commit are read from git instead.
+  - They are removed when a repository is unlinked, leaving your own hook
+    content untouched.
+
+  Where `core.hooksPath` redirects hooks elsewhere - husky and some company
+  setups do this - installation is skipped and logged, rather than writing
+  files git will never read.
+
 ## 0.1.22 - 2026-08-03
 
 ### Added

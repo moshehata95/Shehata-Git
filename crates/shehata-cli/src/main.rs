@@ -85,6 +85,26 @@ enum Commands {
     /// Installer-only user PATH maintenance.
     #[command(hide = true, subcommand)]
     Path(PathCommands),
+    /// Record an operation performed outside this app. Called by the audit
+    /// hooks installed into a routed repository; not meant to be typed.
+    #[command(hide = true)]
+    HookEvent {
+        /// Repository UUID, written into the hook when routing was enabled.
+        #[arg(long)]
+        repo_id: String,
+        /// One of: external_push, external_commit, external_pull.
+        #[arg(long)]
+        event: String,
+        #[arg(long, default_value = "")]
+        branch: String,
+        #[arg(long, default_value = "")]
+        commit: String,
+        /// Subject line of the commit at HEAD.
+        #[arg(long, default_value = "")]
+        subject: String,
+        #[arg(long, default_value = "")]
+        remote: String,
+    },
 }
 
 #[derive(Subcommand)]
@@ -162,6 +182,14 @@ async fn main() -> ExitCode {
         Commands::Path(PathCommands::Uninstall { directory }) => {
             cmd_user_path(cli.json, &directory, false)
         }
+        Commands::HookEvent {
+            repo_id,
+            event,
+            branch,
+            commit,
+            subject,
+            remote,
+        } => cmd_hook_event(&repo_id, &event, &branch, &commit, &subject, &remote),
     };
     match result {
         Ok(()) => ExitCode::SUCCESS,
@@ -521,6 +549,101 @@ fn locate_mcp_binary() -> Option<PathBuf> {
         }
     }
     which::which("shehata-mcp").ok()
+}
+
+/// Called by git hooks to record external operations in the audit log.
+/// Runs silently — errors are swallowed so hooks never block git.
+/// Record an operation git performed outside this application.
+///
+/// Only the audit hooks call this. Every input arrives from a shell script, so
+/// nothing is trusted: the repository id must be a UUID, the event must be one
+/// this application installed a hook for, and free text is redacted, stripped
+/// of control characters, and truncated before it reaches the database.
+///
+/// Entries are shaped like the app's own so the trail reads as one history:
+/// the change is the title, and the context sits on the line beneath it.
+fn cmd_hook_event(
+    repo_id: &str,
+    event: &str,
+    branch: &str,
+    commit: &str,
+    subject: &str,
+    remote: &str,
+) -> Result<(), u8> {
+    let repo_id = repo_id.trim();
+    if !uuid_shaped(repo_id) {
+        return Err(EXIT_FAILURE);
+    }
+    let label = match event {
+        "external_push" => "Push outside the app",
+        "external_commit" => "Commit outside the app",
+        "external_pull" => "Pull outside the app",
+        _ => return Err(EXIT_FAILURE),
+    };
+
+    let db_path = Database::default_path().map_err(|_| EXIT_FAILURE)?;
+    let db = Database::open_at(&db_path).map_err(|_| EXIT_FAILURE)?;
+
+    // Name the repository the way the rest of the trail does.
+    let display_name = shehata_storage::queries::find_repository_by_id(&db, repo_id)
+        .ok()
+        .flatten()
+        .map(|repository| repository.display_name)
+        .unwrap_or_else(|| "unknown repository".to_string());
+
+    let subject = clean(subject, 60);
+    let summary = if subject.is_empty() {
+        label.to_string()
+    } else {
+        subject
+    };
+
+    let mut detail = vec![label.to_string(), display_name];
+    for (value, limit) in [(remote, 40), (branch, 60)] {
+        let value = clean(value, limit);
+        if !value.is_empty() {
+            detail.push(value);
+        }
+    }
+    let commit = clean(commit, 40);
+    if !commit.is_empty() {
+        detail.push(commit.chars().take(7).collect());
+    }
+
+    shehata_storage::queries::insert_audit_event(
+        &db,
+        &shehata_storage::NewAuditEvent {
+            event_type: event,
+            repository_id: Some(repo_id),
+            account_login: None,
+            summary: &summary,
+            detail: Some(&detail.join(" \u{b7} ")),
+            result: "success",
+            exit_code: Some(0),
+            duration_ms: None,
+        },
+    )
+    .map_err(|_| EXIT_FAILURE)?;
+    Ok(())
+}
+
+/// Accept only a canonical UUID: the value is written into the audit trail and
+/// used to look a repository up, and it arrives from a shell script.
+fn uuid_shaped(value: &str) -> bool {
+    value.len() == 36
+        && value.matches('-').count() == 4
+        && value.chars().all(|c| c.is_ascii_hexdigit() || c == '-')
+}
+
+/// Shell-supplied text: redact, drop control characters, and bound the length.
+fn clean(value: &str, max_chars: usize) -> String {
+    redact::redact_secrets(value.trim())
+        .chars()
+        .filter(|c| !c.is_control())
+        .take(max_chars)
+        .collect::<String>()
+        .trim()
+        .to_string()
 }
 
 fn cmd_user_path(json: bool, directory: &std::path::Path, install: bool) -> Result<(), u8> {
