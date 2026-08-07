@@ -20,6 +20,19 @@ import type { AuditEvent } from "@/lib/types";
 
 type ResultFilter = "all" | "success" | "failed";
 type SortOrder = "newest" | "oldest";
+type KindFilter = "operations" | "credentials" | "all";
+
+/**
+ * Handing a credential to git is recorded every time git asks for one, which
+ * is far more often than anything is pushed or committed. Left mixed in, those
+ * rows bury the ones that say what actually happened to a repository.
+ *
+ * They are separated rather than hidden, and each tab carries its own count,
+ * so nothing disappears without saying so.
+ */
+function isCredentialEvent(eventType: string): boolean {
+  return eventType.startsWith("credential_");
+}
 
 export function ActivityPage() {
   const queryClient = useQueryClient();
@@ -37,6 +50,7 @@ export function ActivityPage() {
   const [search, setSearch] = useState("");
   const [result, setResult] = useState<ResultFilter>("all");
   const [sort, setSort] = useState<SortOrder>("newest");
+  const [kind, setKind] = useState<KindFilter>("operations");
   const [deleteTarget, setDeleteTarget] = useState<AuditEvent | "all" | null>(null);
   const removeOne = useMutation({
     mutationFn: deleteAuditEvent,
@@ -66,11 +80,23 @@ export function ActivityPage() {
         event.detail?.toLowerCase().includes(needle) ||
         event.event_type.toLowerCase().includes(needle) ||
         event.account_login?.toLowerCase().includes(needle);
-      return matchesResult && matchesSearch;
+      const matchesKind =
+        kind === "all" || isCredentialEvent(event.event_type) === (kind === "credentials");
+      return matchesResult && matchesSearch && matchesKind;
     });
     // The backend already returns newest first, so oldest is a plain reverse.
     return sort === "newest" ? rows : [...rows].reverse();
-  }, [events.data, result, search, sort]);
+  }, [events.data, result, search, sort, kind]);
+
+  const credentialCount = events.data?.filter((event) =>
+    isCredentialEvent(event.event_type),
+  ).length;
+  const operationCount = (events.data?.length ?? 0) - (credentialCount ?? 0);
+  const kindCounts: Record<KindFilter, number | undefined> = {
+    operations: operationCount,
+    credentials: credentialCount,
+    all: events.data?.length,
+  };
   const successCount = events.data?.filter((event) => event.result === "success").length ?? 0;
   const failedCount = (events.data?.length ?? 0) - successCount;
 
@@ -109,6 +135,30 @@ export function ActivityPage() {
             className="h-9 min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground/50 focus-visible:ring-0 focus-visible:ring-offset-0 [&::-webkit-search-cancel-button]:hidden"
           />
         </label>
+        <div className="flex gap-1 rounded-[0.55rem] border border-white/10 bg-background/20 p-1">
+          {(["operations", "credentials", "all"] as const).map((option) => (
+            <button
+              key={option}
+              type="button"
+              onClick={() => setKind(option)}
+              title={
+                option === "credentials"
+                  ? "Every time git was handed a credential"
+                  : option === "operations"
+                    ? "Pushes, pulls, and commits"
+                    : "Everything recorded"
+              }
+              className={`min-h-8 rounded-[0.4rem] px-3 text-xs font-semibold capitalize transition ${kind === option ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"}`}
+            >
+              {option}
+              {kindCounts[option] !== undefined && (
+                <span className="ml-1.5 font-mono text-[0.65rem] opacity-70">
+                  {kindCounts[option]}
+                </span>
+              )}
+            </button>
+          ))}
+        </div>
         <div className="flex gap-1 rounded-[0.55rem] border border-white/10 bg-background/20 p-1">
           {(["all", "success", "failed"] as const).map((option) => (
             <button
@@ -167,7 +217,7 @@ export function ActivityPage() {
               </p>
               <p className="mt-1 max-w-sm text-sm text-muted-foreground">
                 {events.data?.length
-                  ? "Try a different search or result filter."
+                  ? "Try a different search, result, or category filter."
                   : "Repository routing and Git actions will appear here."}
               </p>
             </div>

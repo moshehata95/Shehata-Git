@@ -45,6 +45,40 @@ internal marker recorded nothing, and a pre-existing user hook still ran.
 
 126 Rust tests pass.
 
+## 2026-08-07 - v0.1.23 recording what happens outside the app
+
+Found by using the tool: a push to another repository left nothing in the trail
+but a `credential_served` row. Querying the database showed the shape of it -
+27 `push` events for this repository, which is pushed through the app, and zero
+for every repository pushed from a terminal.
+
+- Added `hooks`: `pre-push`, `post-commit`, and `post-merge` scripts written
+  into a repository when routing is enabled. Design constraints that mattered:
+  - The app marks its own git invocations with an environment variable and the
+    hook skips when it sees it. Without that, every push through the app would
+    have been recorded twice - once well, once poorly.
+  - The block is inserted after the shebang, ahead of any existing hook body. A
+    hook ending in `exit 0` is common, and appending would have meant the
+    audit silently never ran.
+  - Every hook ends in `|| true` and redirects output. An audit trail must
+    never be the reason a push fails.
+- Added `ActionCaller::label`, and carried the caller through `NetworkPlan` into
+  the audit writer. The caller is declared at the boundary, so this is exact -
+  unlike the hooks, which can say an operation happened outside the app but
+  cannot prove whether a person or an agent typed it. The two are worded
+  differently on purpose.
+- `hook-event` resolves the repository's assigned account and records it, so a
+  single row answers both what happened and as whom.
+- Split the activity trail into Operations and Credentials, defaulting to
+  Operations, with counts on both tabs. Credential rows were 90 of 169.
+
+### On the version number
+
+All of this shipped as 0.1.23 rather than as several releases. 0.1.23 existed
+only in the manifests and had never been tagged or published, so each fix
+belonged in the same unreleased box. Publishing 0.1.23 and 0.1.24 minutes apart
+would have invented a version nobody could ever have run.
+
 ## 2026-08-03 - v0.1.22 CI and supply chain
 
 - Added `scripts/check-versions.mjs`, in Node rather than shell so it runs the

@@ -584,12 +584,29 @@ fn cmd_hook_event(
     let db_path = Database::default_path().map_err(|_| EXIT_FAILURE)?;
     let db = Database::open_at(&db_path).map_err(|_| EXIT_FAILURE)?;
 
-    // Name the repository the way the rest of the trail does.
-    let display_name = shehata_storage::queries::find_repository_by_id(&db, repo_id)
+    // Name the repository the way the rest of the trail does, and record the
+    // identity the operation authenticated as.
+    //
+    // Without this the trail needs two rows to answer one question: the hook
+    // row says what happened, and a separate credential row says which account
+    // it happened as. An entry that only answers half of that is the kind of
+    // record that looks complete while hiding the part that matters here.
+    let repository = shehata_storage::queries::find_repository_by_id(&db, repo_id)
         .ok()
-        .flatten()
-        .map(|repository| repository.display_name)
+        .flatten();
+    let display_name = repository
+        .as_ref()
+        .map(|repository| repository.display_name.clone())
         .unwrap_or_else(|| "unknown repository".to_string());
+    let account_login = repository
+        .as_ref()
+        .and_then(|repository| repository.assigned_account_id)
+        .and_then(|account_id| {
+            shehata_storage::queries::find_account_by_id(&db, account_id)
+                .ok()
+                .flatten()
+        })
+        .map(|account| account.login);
 
     let subject = clean(subject, 60);
     let summary = if subject.is_empty() {
@@ -615,7 +632,7 @@ fn cmd_hook_event(
         &shehata_storage::NewAuditEvent {
             event_type: event,
             repository_id: Some(repo_id),
-            account_login: None,
+            account_login: account_login.as_deref(),
             summary: &summary,
             detail: Some(&detail.join(" \u{b7} ")),
             result: "success",

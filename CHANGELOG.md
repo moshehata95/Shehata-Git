@@ -4,17 +4,17 @@ All notable changes to Shehata Git are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and versions follow
 [Semantic Versioning](https://semver.org/).
 
-## 0.1.23 - 2026-08-06
+## 0.1.23 - 2026-08-07
 
 ### Added
 
 - **Operations performed outside the app are now recorded.** A repository
-  pushed from a terminal, an IDE, or a coding agent used to show only
-  "Credentials served" in the activity trail, because git's credential protocol
-  never says what the operation is - a push, a fetch, and an `ls-remote` all
-  look identical to it. Audit hooks are now installed when routing is enabled,
-  and they report the push, commit, or merge with the same branch, commit, and
-  change that the app records for its own actions.
+  pushed from a terminal, an editor, or a coding agent used to show only
+  "Credentials served", because git's credential protocol never says what the
+  operation is - a push, a fetch, and an `ls-remote` look identical to it.
+  Linking a repository now installs audit hooks that report the push, commit,
+  or merge with the same repository, branch, commit, and change description the
+  app records for its own actions.
 
   The hooks are written to run inside someone else's repository:
 
@@ -22,15 +22,40 @@ All notable changes to Shehata Git are documented here. The format follows
     binary, a locked database, or an uninstalled app cannot break a push.
   - They never disturb an existing hook. The block is inserted after the
     shebang and never calls `exit`, so a hook you already had keeps working -
-    including one that ends in `exit 0`.
+    including one ending in `exit 0`, which would otherwise have swallowed a
+    block appended after it.
   - They never read stdin. `pre-push` receives ref updates there and your own
     hook may be reading them; branch and commit are read from git instead.
+  - They skip the app's own git calls, so an action taken in the app is
+    recorded once, precisely, instead of twice.
   - They are removed when a repository is unlinked, leaving your own hook
     content untouched.
 
   Where `core.hooksPath` redirects hooks elsewhere - husky and some company
   setups do this - installation is skipped and logged, rather than writing
   files git will never read.
+
+- **The trail says who acted.** Every network entry now names its source:
+  `by a coding agent`, `from the app`, or `from the command line`. This was the
+  quieter of the two gaps and the larger one: an agent's push through the app
+  was already recorded, but written identically to one made by hand, so a trail
+  full of pushes could not answer the question this tool exists to answer.
+
+  The wording differs by how certain the record is. A caller that reaches the
+  app declares itself, so that attribution is exact. A hook can prove an
+  operation happened outside the app but not who typed it, so those entries
+  claim only that.
+
+- **Activity is grouped into Operations and Credentials.** Handing a credential
+  to git happens every time git asks for one, far more often than anything is
+  pushed, and those rows buried the rest. Each tab carries its own count, so
+  the split organises the trail without hiding any of it.
+
+### Fixed
+
+- Entries recorded by the hooks now carry the account the operation
+  authenticated as. Without it the trail needed two rows to answer one
+  question: what happened, and as whom.
 
 ## 0.1.22 - 2026-08-03
 

@@ -70,6 +70,23 @@ already had is preserved - the managed block is inserted after the shebang and
 never exits - and unlinking removes the block while leaving your own content in
 place.
 
+## What the activity trail can prove
+
+An action taken through the desktop app, the CLI, or the MCP server names its
+source exactly, because the caller is declared at that boundary: a push made by
+a coding agent is recorded as such and cannot be confused with one made by
+hand.
+
+An action taken outside the app - in a terminal, an editor, or by an agent
+running git directly - is recorded by a git hook. The hook can state what
+happened and to which repository, branch, and commit, but it cannot tell who
+typed the command, so those entries say only that the operation happened
+outside the app. They are worded differently for that reason.
+
+Hooks are a record, not a control. They can be bypassed with `--no-verify`, and
+they are not consulted at all when `core.hooksPath` points elsewhere. Nothing
+in the security model depends on them.
+
 ## Push policies
 
 A repository is either **Allow normal push** (humans and coding agents may
