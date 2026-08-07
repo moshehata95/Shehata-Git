@@ -121,7 +121,7 @@ export function ActivityPage() {
         </div>
       </section>
 
-      <div className="liquid-panel flex flex-col gap-3 rounded-[0.8rem] p-3 sm:flex-row sm:items-center">
+      <div className="liquid-panel flex flex-col gap-3 rounded-[0.8rem] p-3">
         <label className="flex min-h-11 min-w-0 flex-1 items-center gap-2 rounded-[0.65rem] border border-white/10 bg-background/25 px-2 transition-all focus-within:border-primary/40 focus-within:bg-background/40 focus-within:shadow-[0_0_0_3px_hsl(var(--primary)/0.08)]">
           <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[0.5rem] bg-white/[0.035] text-muted-foreground">
             <Search className="h-4 w-4" aria-hidden />
@@ -135,68 +135,70 @@ export function ActivityPage() {
             className="h-9 min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground/50 focus-visible:ring-0 focus-visible:ring-offset-0 [&::-webkit-search-cancel-button]:hidden"
           />
         </label>
-        <div className="flex gap-1 rounded-[0.55rem] border border-white/10 bg-background/20 p-1">
-          {(["operations", "credentials", "all"] as const).map((option) => (
-            <button
-              key={option}
-              type="button"
-              onClick={() => setKind(option)}
-              title={
-                option === "credentials"
-                  ? "Every time git was handed a credential"
-                  : option === "operations"
-                    ? "Pushes, pulls, and commits"
-                    : "Everything recorded"
-              }
-              className={`min-h-8 rounded-[0.4rem] px-3 text-xs font-semibold capitalize transition ${kind === option ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"}`}
-            >
-              {option}
-              {kindCounts[option] !== undefined && (
-                <span className="ml-1.5 font-mono text-[0.65rem] opacity-70">
-                  {kindCounts[option]}
-                </span>
-              )}
-            </button>
-          ))}
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="flex gap-1 rounded-[0.55rem] border border-white/10 bg-background/20 p-1">
+            {(["operations", "credentials", "all"] as const).map((option) => (
+              <button
+                key={option}
+                type="button"
+                onClick={() => setKind(option)}
+                title={
+                  option === "credentials"
+                    ? "Every time git was handed a credential"
+                    : option === "operations"
+                      ? "Pushes, pulls, and commits"
+                      : "Everything recorded"
+                }
+                className={`min-h-8 rounded-[0.4rem] px-3 text-xs font-semibold capitalize transition ${kind === option ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"}`}
+              >
+                {option}
+                {kindCounts[option] !== undefined && (
+                  <span className="ml-1.5 font-mono text-[0.65rem] opacity-70">
+                    {kindCounts[option]}
+                  </span>
+                )}
+              </button>
+            ))}
+          </div>
+          <div className="flex gap-1 rounded-[0.55rem] border border-white/10 bg-background/20 p-1">
+            {(["all", "success", "failed"] as const).map((option) => (
+              <button
+                key={option}
+                type="button"
+                onClick={() => setResult(option)}
+                className={`min-h-8 rounded-[0.4rem] px-3 text-xs font-semibold capitalize transition ${result === option ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"}`}
+              >
+                {option}
+              </button>
+            ))}
+          </div>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setSort((value) => (value === "newest" ? "oldest" : "newest"))}
+            title={sort === "newest" ? "Showing newest first" : "Showing oldest first"}
+          >
+            <ArrowDownUp aria-hidden /> {sort === "newest" ? "Newest" : "Oldest"}
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => events.refetch()}
+            disabled={events.isFetching}
+          >
+            <RefreshCw className={events.isFetching ? "animate-spin" : undefined} aria-hidden />{" "}
+            Refresh
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="text-muted-foreground hover:text-destructive"
+            onClick={() => setDeleteTarget("all")}
+            disabled={!events.data?.length || clearAll.isPending || removeOne.isPending}
+          >
+            <Trash2 aria-hidden /> Clear history
+          </Button>
         </div>
-        <div className="flex gap-1 rounded-[0.55rem] border border-white/10 bg-background/20 p-1">
-          {(["all", "success", "failed"] as const).map((option) => (
-            <button
-              key={option}
-              type="button"
-              onClick={() => setResult(option)}
-              className={`min-h-8 rounded-[0.4rem] px-3 text-xs font-semibold capitalize transition ${result === option ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"}`}
-            >
-              {option}
-            </button>
-          ))}
-        </div>
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => setSort((value) => (value === "newest" ? "oldest" : "newest"))}
-          title={sort === "newest" ? "Showing newest first" : "Showing oldest first"}
-        >
-          <ArrowDownUp aria-hidden /> {sort === "newest" ? "Newest" : "Oldest"}
-        </Button>
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => events.refetch()}
-          disabled={events.isFetching}
-        >
-          <RefreshCw className={events.isFetching ? "animate-spin" : undefined} aria-hidden />{" "}
-          Refresh
-        </Button>
-        <Button
-          variant="ghost"
-          size="sm"
-          className="text-muted-foreground hover:text-destructive"
-          onClick={() => setDeleteTarget("all")}
-          disabled={!events.data?.length || clearAll.isPending || removeOne.isPending}
-        >
-          <Trash2 aria-hidden /> Clear history
-        </Button>
       </div>
 
       {events.isError && (
