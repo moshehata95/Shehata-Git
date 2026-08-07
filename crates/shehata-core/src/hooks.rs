@@ -93,7 +93,16 @@ fn script_for(cli: &str, repository_id: &str, hook: &str) -> String {
 /// have a repository record should pass the common git directory, so linked
 /// worktrees share one set of hooks.
 pub fn install_hooks(git_dir: &Path, repository_id: &str) -> Result<()> {
-    let cli_path = locate_cli()?;
+    install_hooks_with(git_dir, repository_id, &locate_cli()?)
+}
+
+/// The body of [`install_hooks`], with the CLI path supplied by the caller.
+///
+/// Discovery is separated from writing so the tests do not depend on this
+/// machine having the app installed. They did, and so they passed on a
+/// developer machine and failed on a clean CI runner — the tests were
+/// asserting something about the environment rather than about this code.
+fn install_hooks_with(git_dir: &Path, repository_id: &str, cli_path: &Path) -> Result<()> {
     // Hook scripts run under `sh`, which wants forward slashes even on Windows.
     let cli = cli_path.to_string_lossy().replace('\\', "/");
 
@@ -203,8 +212,18 @@ mod tests {
     use super::*;
     use tempfile::TempDir;
 
+    /// A stand-in for the installed CLI. The scripts only embed this path and
+    /// guard on it being executable at run time, so no real binary is needed.
+    fn fake_cli() -> PathBuf {
+        PathBuf::from(if cfg!(windows) {
+            "C:/Program Files/Shehata Git/shehata.exe"
+        } else {
+            "/usr/local/bin/shehata"
+        })
+    }
+
     fn install_into(dir: &Path) {
-        install_hooks(dir, "cd27fa83-54b9-40e4-bd22-9015e85998d9").unwrap();
+        install_hooks_with(dir, "cd27fa83-54b9-40e4-bd22-9015e85998d9", &fake_cli()).unwrap();
     }
 
     #[test]

@@ -79,6 +79,23 @@ only in the manifests and had never been tagged or published, so each fix
 belonged in the same unreleased box. Publishing 0.1.23 and 0.1.24 minutes apart
 would have invented a version nobody could ever have run.
 
+## 2026-08-07 - a test that asserted about the machine
+
+The hook tests passed here and failed on the macOS runner. `install_hooks`
+resolved the CLI through `which`, and this machine has the app installed, so
+the lookup succeeded locally and returned nothing on a clean runner - five
+tests failing on an environment difference rather than on the code.
+
+Discovery is now separated from writing: `install_hooks` resolves the path and
+delegates to `install_hooks_with`, which the tests call with a fixed path. The
+scripts only embed that path and check it at run time, so no real binary is
+needed to test what the scripts contain.
+
+Verified by re-running the suite with the install directory stripped from
+`PATH`, which is the condition CI actually runs under. Worth keeping in mind
+for anything else that reaches for an installed tool: a green local run says
+nothing until it is green without the things this machine happens to have.
+
 ## 2026-08-03 - v0.1.22 CI and supply chain
 
 - Added `scripts/check-versions.mjs`, in Node rather than shell so it runs the
