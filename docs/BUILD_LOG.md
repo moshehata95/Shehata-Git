@@ -79,6 +79,25 @@ only in the manifests and had never been tagged or published, so each fix
 belonged in the same unreleased box. Publishing 0.1.23 and 0.1.24 minutes apart
 would have invented a version nobody could ever have run.
 
+## 2026-08-07 - v0.1.25 a permission nobody re-read
+
+`openUrl` is gated by the window's capability file, which allowed a single
+literal URL: `https://github.com/login/device`. Tauri refuses anything else
+silently, so a button wired to an unlisted address renders, clicks, and does
+nothing.
+
+That is how "Get App Installer" shipped broken in 0.1.10 and stayed broken:
+the button only renders on a machine missing winget, and no such machine was
+ever used to test it. The new repository link failed the same way and was
+caught within minutes only because it is on a screen used constantly.
+
+Two things changed. The allow list now names every address the app opens. And
+the repository link renders only for a host on that list, so the failure mode
+becomes an absent control rather than a dead one.
+
+Worth remembering: a permission list is a second place the truth lives. Adding
+a feature that calls through it is not finished when the code compiles.
+
 ## 2026-08-07 - v0.1.24 two bugs found by using it
 
 Both were reported after a working session rather than by reading the code, and

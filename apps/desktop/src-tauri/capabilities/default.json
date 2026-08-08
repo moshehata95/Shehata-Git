@@ -10,7 +10,12 @@
     "dialog:allow-open",
     {
       "identifier": "opener:allow-open-url",
-      "allow": [{ "url": "https://github.com/login/device" }]
+      "comment": "Every address the app opens in a browser must be listed here. An unlisted one is refused with no visible effect, so a button wired to it looks broken rather than blocked.",
+      "allow": [
+        { "url": "https://github.com/*" },
+        { "url": "https://github.com/*/*" },
+        { "url": "https://aka.ms/getwinget" }
+      ]
     }
   ]
 }

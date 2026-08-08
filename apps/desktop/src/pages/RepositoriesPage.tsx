@@ -463,7 +463,7 @@ function RepositoryRow({
               <p className="data-label">REMOTE</p>
               <p className="mt-2 flex min-w-0 items-center gap-2 text-sm text-muted-foreground">
                 <Globe className="h-3.5 w-3.5 shrink-0" aria-hidden />
-                {repo.host && repo.owner && repo.repo_name ? (
+                {repo.host === "github.com" && repo.owner && repo.repo_name ? (
                   <button
                     type="button"
                     onClick={(event) => {

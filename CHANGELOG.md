@@ -4,6 +4,20 @@ All notable changes to Shehata Git are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and versions follow
 [Semantic Versioning](https://semver.org/).
 
+## 0.1.25 - 2026-08-07
+
+### Fixed
+
+- **Links to a browser now open.** The window was permitted to open exactly one
+  address — GitHub's device-login page — and anything else was refused with no
+  visible effect. The "Open on GitHub" link added in 0.1.24 did nothing, and so
+  had **Get App Installer** since 0.1.10, which went unnoticed because that
+  button only appears on a machine without Windows Package Manager.
+
+  The permitted list now covers the addresses the app actually opens, and a
+  repository link is only shown for a host on it — a control that silently does
+  nothing is worse than no control.
+
 ## 0.1.24 - 2026-08-07
 
 ### Fixed

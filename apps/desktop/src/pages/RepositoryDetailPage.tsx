@@ -334,7 +334,7 @@ export function RepositoryDetailPage({ repositoryId, onBack }: RepositoryDetailP
               <RefreshCw className={status.isFetching ? "animate-spin" : undefined} aria-hidden />
               Refresh
             </Button>
-            {repository.host && repository.owner && repository.repo_name && (
+            {repository.host === "github.com" && repository.owner && repository.repo_name && (
               <Button
                 variant="outline"
                 onClick={() =>
