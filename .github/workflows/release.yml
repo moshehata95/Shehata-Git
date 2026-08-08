@@ -132,3 +132,36 @@ jobs:
         with:
           files: installers/**
           generate_release_notes: true
+
+      # Package manifests repeat the version and the checksum, so they are
+      # regenerated from what was just published rather than edited by hand.
+      - name: Check out source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7 as of 2026-08-03
+        with:
+          path: source
+
+      - name: Install Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7 as of 2026-08-03
+        with:
+          node-version: 20
+
+      - name: Refresh package manifests
+        shell: bash
+        working-directory: source
+        run: |
+          set -euo pipefail
+          version="${GITHUB_REF_NAME#v}"
+          windows=$(awk '{print $1}' "../installers/Shehata.Git_${version}_x64-setup.exe.sha256")
+          macos=$(awk '{print $1}' "../installers/Shehata.Git_${version}_aarch64.dmg.sha256")
+          node scripts/make-packages.mjs "$version" "$windows" "$macos"
+
+          if git diff --quiet; then
+            echo "manifests already current"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add bucket packaging
+          git commit -m "chore(packaging): manifests for ${version}"
+          # The tag was cut before this commit, so push to the branch it is on.
+          git push origin HEAD:main

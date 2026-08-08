@@ -91,18 +91,39 @@ On Windows, install the MSVC C++ Build Tools and a Windows SDK.
 
 ## Installation
 
-### Download the installer (recommended)
+### With a package manager (recommended)
 
-Grab the latest build from the
-[releases page](https://github.com/moshehata95/Shehata-Git/releases/latest):
+```bash
+# Windows
+winget install Shehata.ShehataGit
+
+# Windows, via Scoop
+scoop bucket add shehata https://github.com/moshehata95/Shehata-Git
+scoop install shehata-git
+
+# macOS (Apple silicon)
+brew tap moshehata95/shehata
+brew install --cask --no-quarantine shehata-git
+```
+
+### Or download the installer
+
+From the [releases page](https://github.com/moshehata95/Shehata-Git/releases/latest):
 
 | Platform | File |
 |---|---|
 | Windows 10/11 (x64) | `Shehata-Git-windows-x64-setup.exe` |
 | macOS (Apple Silicon) | `Shehata-Git-macos-apple-silicon.dmg` |
 
-Neither installer is code-signed yet, so the first launch needs one extra
-click: **More info → Run anyway** on Windows, **right-click → Open** on macOS.
+**Neither installer is code-signed.** A certificate costs more per year than
+this project earns, so downloading directly means one extra click — **More info
+→ Run anyway** on Windows, **right-click → Open** on macOS. Installing through
+a package manager avoids that.
+
+Every release publishes a SHA-256 checksum beside its installer, and the build
+runs in public in [GitHub Actions](https://github.com/moshehata95/Shehata-Git/actions),
+so a download can be verified even though it carries no signature. See
+[packaging](docs/PACKAGING.md).
 
 ### Build from source
 

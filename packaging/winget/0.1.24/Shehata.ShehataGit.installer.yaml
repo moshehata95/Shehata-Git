@@ -1,0 +1,16 @@
+# yaml-language-server: $schema=https://aka.ms/winget-manifest.installer.1.6.0.schema.json
+PackageIdentifier: Shehata.ShehataGit
+PackageVersion: 0.1.24
+InstallerType: nullsoft
+Scope: user
+InstallModes:
+  - interactive
+  - silent
+UpgradeBehavior: install
+ReleaseDate: 2026-08-08
+Installers:
+  - Architecture: x64
+    InstallerUrl: https://github.com/moshehata95/Shehata-Git/releases/download/v0.1.24/Shehata.Git_0.1.24_x64-setup.exe
+    InstallerSha256: 6DB3B43CF693D0C98ECA05162C09932255B70BECDAE05E4E28BA96A2044C492B
+ManifestType: installer
+ManifestVersion: 1.6.0

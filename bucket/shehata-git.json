@@ -1,0 +1,33 @@
+{
+  "version": "0.1.25",
+  "description": "Pin every local repository to one GitHub identity, so the wrong account — or a coding agent — never pushes for you.",
+  "homepage": "https://github.com/moshehata95/Shehata-Git",
+  "license": "MIT",
+  "architecture": {
+    "64bit": {
+      "url": "https://github.com/moshehata95/Shehata-Git/releases/download/v0.1.25/Shehata.Git_0.1.25_x64-setup.exe#/setup.exe",
+      "hash": "855412c497f4ad2a46b5c746117884f5a614aaf3ed7103f5a37af8253c7b341b"
+    }
+  },
+  "innosetup": false,
+  "installer": {
+    "args": [
+      "/S"
+    ]
+  },
+  "uninstaller": {
+    "args": [
+      "/S"
+    ]
+  },
+  "checkver": {
+    "github": "https://github.com/moshehata95/Shehata-Git"
+  },
+  "autoupdate": {
+    "architecture": {
+      "64bit": {
+        "url": "https://github.com/moshehata95/Shehata-Git/releases/download/v$version/Shehata.Git_$version_x64-setup.exe#/setup.exe"
+      }
+    }
+  }
+}
