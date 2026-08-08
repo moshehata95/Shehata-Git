@@ -79,6 +79,27 @@ only in the manifests and had never been tagged or published, so each fix
 belonged in the same unreleased box. Publishing 0.1.23 and 0.1.24 minutes apart
 would have invented a version nobody could ever have run.
 
+## 2026-08-07 - v0.1.24 two bugs found by using it
+
+Both were reported after a working session rather than by reading the code, and
+both were the same shape: the app was technically correct about a narrow thing
+and wrong about what the user needed.
+
+- Sign-in ran `gh auth login --web` with no `--scopes`. Correct, in that it
+  authenticated - but the token could not touch `.github/workflows`, so the
+  doctor check added in 0.1.9 fired for every account the moment it was added.
+  The repair button was working exactly as designed on a problem that should
+  never have existed. Requesting `workflow` during sign-in removes the loop.
+- Repository discovery read `git config --local`, which is right for the backup
+  it feeds but wrong for the field it populates: a fresh clone inherits its
+  identity rather than setting it, so the connect form opened blank. Discovery
+  now reports the effective value. `assignment.rs` reads `--local` itself for
+  the backup, so restore semantics are untouched - worth checking before the
+  change rather than after.
+
+Also added a link from a repository to its page on GitHub, which is a small
+convenience and not a fix.
+
 ## 2026-08-07 - a test that asserted about the machine
 
 The hook tests passed here and failed on the macOS runner. `install_hooks`

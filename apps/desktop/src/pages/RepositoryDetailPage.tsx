@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { openUrl } from "@tauri-apps/plugin-opener";
 import {
   AlertCircle,
   ArrowDown,
@@ -7,6 +8,7 @@ import {
   Check,
   CheckCircle2,
   CloudCog,
+  ExternalLink,
   EyeOff,
   FileCode2,
   FileDiff,
@@ -332,6 +334,20 @@ export function RepositoryDetailPage({ repositoryId, onBack }: RepositoryDetailP
               <RefreshCw className={status.isFetching ? "animate-spin" : undefined} aria-hidden />
               Refresh
             </Button>
+            {repository.host && repository.owner && repository.repo_name && (
+              <Button
+                variant="outline"
+                onClick={() =>
+                  void openUrl(
+                    `https://${repository.host}/${repository.owner}/${repository.repo_name}`,
+                  )
+                }
+                title={`Open ${repository.owner}/${repository.repo_name} on ${repository.host}`}
+              >
+                <ExternalLink aria-hidden />
+                Open on GitHub
+              </Button>
+            )}
             {repository.routing_configured ? (
               <Button onClick={smartSync} disabled={pending}>
                 {inspectSync.isPending || pull.isPending || push.isPending ? (

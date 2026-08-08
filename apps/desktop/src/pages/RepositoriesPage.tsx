@@ -1,11 +1,13 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { open } from "@tauri-apps/plugin-dialog";
+import { openUrl } from "@tauri-apps/plugin-opener";
 import {
   AlertCircle,
   ArrowRight,
   Check,
   CheckCircle2,
   ChevronDown,
+  ExternalLink,
   FileDiff,
   FolderGit2,
   FolderOpen,
@@ -461,11 +463,27 @@ function RepositoryRow({
               <p className="data-label">REMOTE</p>
               <p className="mt-2 flex min-w-0 items-center gap-2 text-sm text-muted-foreground">
                 <Globe className="h-3.5 w-3.5 shrink-0" aria-hidden />
-                <span className="truncate">
-                  {repo.owner && repo.repo_name
-                    ? `${repo.owner}/${repo.repo_name}`
-                    : "Remote unavailable"}
-                </span>
+                {repo.host && repo.owner && repo.repo_name ? (
+                  <button
+                    type="button"
+                    onClick={(event) => {
+                      // The whole card opens the repository in the app; this
+                      // one control means the remote instead.
+                      event.stopPropagation();
+                      void openUrl(`https://${repo.host}/${repo.owner}/${repo.repo_name}`);
+                    }}
+                    title={`Open ${repo.owner}/${repo.repo_name} on ${repo.host}`}
+                    className="group flex min-w-0 items-center gap-1.5 rounded-[0.3rem] text-left transition hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+                  >
+                    <span className="truncate">{`${repo.owner}/${repo.repo_name}`}</span>
+                    <ExternalLink
+                      className="h-3 w-3 shrink-0 opacity-50 transition group-hover:opacity-100"
+                      aria-hidden
+                    />
+                  </button>
+                ) : (
+                  <span className="truncate">Remote unavailable</span>
+                )}
               </p>
             </div>
             <div className="rounded-[0.6rem] border border-border/70 bg-background/25 p-3 sm:col-span-2 lg:col-span-1">

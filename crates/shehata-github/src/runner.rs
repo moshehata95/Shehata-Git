@@ -194,6 +194,13 @@ impl GhRunner {
                 "--git-protocol",
                 "https",
                 "--web",
+                // Asked for up front, because a token without it cannot push a
+                // change to `.github/workflows`. Requesting it afterwards
+                // means every newly signed-in account is reported as needing
+                // attention and sends the user back through the browser for a
+                // second approval they were never told about.
+                "--scopes",
+                "workflow",
             ],
             on_event,
             std::future::pending(),
@@ -220,6 +227,13 @@ impl GhRunner {
                 "--git-protocol",
                 "https",
                 "--web",
+                // Asked for up front, because a token without it cannot push a
+                // change to `.github/workflows`. Requesting it afterwards
+                // means every newly signed-in account is reported as needing
+                // attention and sends the user back through the browser for a
+                // second approval they were never told about.
+                "--scopes",
+                "workflow",
             ],
             on_event,
             async move {

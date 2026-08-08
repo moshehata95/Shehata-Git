@@ -4,6 +4,34 @@ All notable changes to Shehata Git are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and versions follow
 [Semantic Versioning](https://semver.org/).
 
+## 0.1.24 - 2026-08-07
+
+### Fixed
+
+- **A newly signed-in account no longer arrives needing repair.** Sign-in asked
+  GitHub only for the default scopes, so every account was missing `workflow`
+  the moment it was added - System check then reported it and sent you back to
+  the browser for a second approval nobody mentioned beforehand. The scope is
+  now requested during sign-in, where you are already approving access.
+
+  Accounts added before this still need the one-time grant; the button in
+  System check remains for them.
+
+- **Connecting a repository shows the commit identity it will actually use.**
+  The form read only the repository's own `user.name` and `user.email`. A fresh
+  clone usually sets neither and inherits them from your global config, so the
+  fields opened blank for the most common case. They now show what git would
+  really sign a commit with.
+
+  Backups are unaffected: unlink still restores exactly what the repository
+  itself had, so an inherited value is shown here but never recorded as though
+  the repository had set it.
+
+### Added
+
+- **Open on GitHub.** The remote name on a repository card is now a link, and
+  repository details carry a matching button.
+
 ## 0.1.23 - 2026-08-07
 
 ### Added

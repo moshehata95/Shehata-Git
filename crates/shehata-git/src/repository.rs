@@ -165,8 +165,12 @@ pub async fn discover_repository(
         .await?;
     let status = parse_porcelain_v2(&status_output.stdout);
 
-    let commit_name = read_local_config(git, &canonical_path, "user.name").await?;
-    let commit_email = read_local_config(git, &canonical_path, "user.email").await?;
+    // What git would actually sign a commit with here, not only what this
+    // repository overrides. A fresh clone usually has no local identity and
+    // inherits the global one, so reading `--local` alone reported nothing and
+    // the connect form opened blank for the common case.
+    let commit_name = read_effective_config(git, &canonical_path, "user.name").await?;
+    let commit_email = read_effective_config(git, &canonical_path, "user.email").await?;
     let credential_helpers =
         read_local_config_values(git, &canonical_path, "credential.helper").await?;
     let credential_use_http_path =
@@ -287,6 +291,24 @@ async fn read_local_config(
     let output = git
         .run_in(Some(repo), &["config", "--local", "--get", key])
         .await?;
+    Ok(successful_value(output.success(), &output.stdout))
+}
+
+/// Read a config value as git resolves it: the repository's own setting when
+/// it has one, otherwise whatever it inherits.
+///
+/// Backups still read `--local` directly, so restoring after an unlink puts
+/// back exactly what the repository had — an inherited value is reported here
+/// but never recorded as if the repository had set it.
+async fn read_effective_config(
+    git: &GitRunner,
+    repo: &Path,
+    key: &str,
+) -> Result<Option<String>, GitError> {
+    if let Some(local) = read_local_config(git, repo, key).await? {
+        return Ok(Some(local));
+    }
+    let output = git.run_in(Some(repo), &["config", "--get", key]).await?;
     Ok(successful_value(output.success(), &output.stdout))
 }
 
