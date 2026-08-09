@@ -79,6 +79,34 @@ only in the manifests and had never been tagged or published, so each fix
 belonged in the same unreleased box. Publishing 0.1.23 and 0.1.24 minutes apart
 would have invented a version nobody could ever have run.
 
+## 2026-08-10 - v0.1.26 a fix that created a worse bug
+
+Reported after connecting a repository and seeing an unrelated client's email
+in the form.
+
+0.1.23 left the author fields blank whenever a repository set no identity of
+its own, which is most fresh clones. 0.1.24 "fixed" that by reading the value
+git resolves - local, else inherited. On a machine whose global identity is set
+to one client, every other repository then opened pre-filled with that client's
+name and email, and one confirmation would write it in as local config.
+
+The blank field was a nuisance. The pre-filled wrong one produces commits
+authored by the wrong person, which is the failure the whole application exists
+to prevent. Trading the first for the second was a bad trade, and it went
+unnoticed because every repository already connected here has a local identity,
+so nothing on this machine showed it.
+
+Discovery now reports the two separately: `commit_name`/`commit_email` for what
+a repository sets itself, and `inherited_commit_*` only when it sets nothing.
+The form fills from the first and warns with the second. A value is either
+chosen or shown as a consequence - never silently promoted from one to the
+other.
+
+The lesson is narrower than "test more". Both readings answer a real question;
+they answer *different* questions. `--local` is right for the backup that
+restores an unlink, and wrong for a field whose value gets written back. Which
+question a call site is asking is worth deciding explicitly.
+
 ## 2026-08-07 - v0.1.25 a permission nobody re-read
 
 `openUrl` is gated by the window's capability file, which allowed a single

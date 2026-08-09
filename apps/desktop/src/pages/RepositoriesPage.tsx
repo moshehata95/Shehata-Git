@@ -1019,6 +1019,27 @@ function AssignmentDialog({
                 Optional. These values are written to this repository only. Existing values are
                 backed up before they change.
               </p>
+              {(repo.inherited_commit_name || repo.inherited_commit_email) && (
+                <div className="mt-3 flex gap-3 rounded-[0.5rem] border border-warning/25 bg-warning/[0.05] p-3 text-xs leading-5 text-muted-foreground">
+                  <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-warning" aria-hidden />
+                  <span>
+                    This repository sets no author of its own, so commits would be made as{" "}
+                    <strong className="text-foreground">
+                      {repo.inherited_commit_name ?? "an unnamed author"}
+                    </strong>
+                    {repo.inherited_commit_email ? (
+                      <>
+                        {" "}
+                        &lt;
+                        <strong className="text-foreground">{repo.inherited_commit_email}</strong>
+                        &gt;
+                      </>
+                    ) : null}
+                    , inherited from your global Git configuration. Enter the author this repository
+                    should use.
+                  </span>
+                </div>
+              )}
               <div className="mt-4 grid gap-4 sm:grid-cols-2">
                 <label className="space-y-2 text-sm font-medium">
                   <span>Author name</span>

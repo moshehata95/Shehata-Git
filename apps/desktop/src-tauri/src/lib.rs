@@ -194,7 +194,7 @@ async fn repositories_add(path: String) -> Result<core_repositories::RepositoryS
     let db = open_db()?;
     let saved = core_repositories::save_discovered_repository(&db, &discovered)
         .map_err(|e| shehata_core::redact::redact_secrets(&e.to_string()))?;
-    core_repositories::repository_summary(&db, saved)
+    core_repositories::discovered_repository_summary(&db, saved, &discovered)
         .map_err(|e| shehata_core::redact::redact_secrets(&e.to_string()))
 }
 

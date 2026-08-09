@@ -57,6 +57,10 @@ export interface RepositorySummary {
   assigned_login: string | null;
   commit_name: string | null;
   commit_email: string | null;
+  /** What commits would be authored as if no identity is chosen here. Only
+   *  set when the repository defines none of its own. */
+  inherited_commit_name?: string | null;
+  inherited_commit_email?: string | null;
   push_policy: string;
   routing_configured: boolean;
 }

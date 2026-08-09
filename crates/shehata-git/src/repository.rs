@@ -61,8 +61,14 @@ pub struct DiscoveredRepository {
     pub remotes: Vec<RepositoryRemote>,
     pub primary_remote_name: Option<String>,
     pub status: WorktreeStatus,
+    /// The identity this repository sets for itself, if it sets one.
     pub commit_name: Option<String>,
     pub commit_email: Option<String>,
+    /// The identity commits would otherwise be authored with, inherited from
+    /// wider Git configuration. Only present when the repository sets none of
+    /// its own, because that is the case where it is about to apply silently.
+    pub inherited_commit_name: Option<String>,
+    pub inherited_commit_email: Option<String>,
     pub credential_helpers: Vec<String>,
     pub credential_use_http_path: Option<bool>,
 }
@@ -165,12 +171,20 @@ pub async fn discover_repository(
         .await?;
     let status = parse_porcelain_v2(&status_output.stdout);
 
-    // What git would actually sign a commit with here, not only what this
-    // repository overrides. A fresh clone usually has no local identity and
-    // inherits the global one, so reading `--local` alone reported nothing and
-    // the connect form opened blank for the common case.
-    let commit_name = read_effective_config(git, &canonical_path, "user.name").await?;
-    let commit_email = read_effective_config(git, &canonical_path, "user.email").await?;
+    // Kept apart on purpose. What a repository sets for itself was chosen for
+    // it; what it inherits is whatever happened to be configured globally and
+    // may belong to an unrelated account. Presenting the second as though it
+    // were the first is how a repository ends up committing as someone else.
+    let commit_name = read_local_config(git, &canonical_path, "user.name").await?;
+    let commit_email = read_local_config(git, &canonical_path, "user.email").await?;
+    let inherited_commit_name = match commit_name {
+        Some(_) => None,
+        None => read_inherited_config(git, &canonical_path, "user.name").await?,
+    };
+    let inherited_commit_email = match commit_email {
+        Some(_) => None,
+        None => read_inherited_config(git, &canonical_path, "user.email").await?,
+    };
     let credential_helpers =
         read_local_config_values(git, &canonical_path, "credential.helper").await?;
     let credential_use_http_path =
@@ -203,6 +217,8 @@ pub async fn discover_repository(
         status,
         commit_name,
         commit_email,
+        inherited_commit_name,
+        inherited_commit_email,
         credential_helpers,
         credential_use_http_path,
     })
@@ -294,20 +310,15 @@ async fn read_local_config(
     Ok(successful_value(output.success(), &output.stdout))
 }
 
-/// Read a config value as git resolves it: the repository's own setting when
-/// it has one, otherwise whatever it inherits.
+/// What git would fall back to for a repository that sets nothing itself.
 ///
-/// Backups still read `--local` directly, so restoring after an unlink puts
-/// back exactly what the repository had — an inherited value is reported here
-/// but never recorded as if the repository had set it.
-async fn read_effective_config(
+/// Reported so the caller can say what will happen by default, never so it can
+/// be presented as the repository's own choice.
+async fn read_inherited_config(
     git: &GitRunner,
     repo: &Path,
     key: &str,
 ) -> Result<Option<String>, GitError> {
-    if let Some(local) = read_local_config(git, repo, key).await? {
-        return Ok(Some(local));
-    }
     let output = git.run_in(Some(repo), &["config", "--get", key]).await?;
     Ok(successful_value(output.success(), &output.stdout))
 }
@@ -428,6 +439,38 @@ mod tests {
         assert_eq!(repo.remotes[0].host.as_deref(), Some("github.com"));
         assert_eq!(repo.commit_name.as_deref(), Some("Test User"));
         assert_eq!(repo.status.untracked_files, 1);
+        // The repository set this itself, so there is nothing pending.
+        assert_eq!(repo.inherited_commit_name, None);
+    }
+
+    #[tokio::test]
+    async fn an_inherited_identity_is_never_reported_as_the_repository_own() {
+        // A repository that sets no identity inherits one that may belong to
+        // an unrelated account. Reporting it in `commit_name` would let the
+        // connect form present someone else's identity as this repository's
+        // choice, and one confirmation would then write it in — which is the
+        // exact mistake this application exists to prevent.
+        let dir = tempfile::tempdir().unwrap();
+        let git = GitRunner::locate().unwrap();
+        git.run_checked(Some(dir.path()), &["init", "-b", "main"])
+            .await
+            .unwrap();
+
+        let repo = discover_repository(&git, dir.path()).await.unwrap();
+        assert_eq!(
+            repo.commit_name, None,
+            "a repository that sets no identity must not claim one"
+        );
+        assert_eq!(repo.commit_email, None);
+        // Whatever it would fall back to is reported separately, so a caller
+        // can say what will happen instead of hiding it.
+        assert_eq!(
+            repo.inherited_commit_name.is_some(),
+            git.run_in(Some(dir.path()), &["config", "--get", "user.name"])
+                .await
+                .unwrap()
+                .success(),
+        );
     }
 
     #[tokio::test]

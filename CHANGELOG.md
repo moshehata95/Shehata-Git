@@ -4,6 +4,26 @@ All notable changes to Shehata Git are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and versions follow
 [Semantic Versioning](https://semver.org/).
 
+## 0.1.26 - 2026-08-10
+
+### Fixed
+
+- **Connecting a repository no longer offers another account's identity.**
+  0.1.24 made the connect form show the author git would resolve to, which for
+  a repository that sets none of its own means the global one. If that global
+  identity belongs to a different client — a common way to work — the form
+  opened pre-filled with their name and email, and confirming would have
+  written it into the repository. Commits would then have been authored as
+  someone else, which is the mistake this application exists to prevent.
+
+  A repository's own author is shown when it has one. When it has none, the
+  fields stay empty and a warning names the identity that would otherwise be
+  used and where it comes from, so the default is visible rather than adopted
+  by accident.
+
+  A test now asserts that an inherited identity is never reported as the
+  repository's own.
+
 ## 0.1.25 - 2026-08-07
 
 ### Fixed

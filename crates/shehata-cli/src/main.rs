@@ -304,13 +304,32 @@ async fn cmd_repos_add(json: bool, path: &str) -> Result<(), u8> {
         Database::open_default().map_err(|error| fail_message(json, "storage_error", &error))?;
     let record = core_repositories::save_discovered_repository(&db, &discovered)
         .map_err(|error| fail(json, &error))?;
-    let summary =
-        core_repositories::repository_summary(&db, record).map_err(|error| fail(json, &error))?;
+    let summary = core_repositories::discovered_repository_summary(&db, record, &discovered)
+        .map_err(|error| fail(json, &error))?;
     if json {
         print_json(&summary)
     } else {
         println!("Registered {}.", safe_text(&summary.display_name));
         println!("Path: {}", safe_text(&summary.canonical_path));
+        // Say what commits would be authored as when the repository sets
+        // nothing itself, so the default is seen rather than discovered later
+        // in a commit that carries the wrong name.
+        if summary.inherited_commit_name.is_some() || summary.inherited_commit_email.is_some() {
+            let name = summary
+                .inherited_commit_name
+                .as_deref()
+                .unwrap_or("(unset)");
+            let email = summary
+                .inherited_commit_email
+                .as_deref()
+                .unwrap_or("(unset)");
+            println!(
+                "Warning: this repository sets no author, so commits would be made as {} <{}>, inherited from your global Git configuration.",
+                safe_text(name),
+                safe_text(email)
+            );
+            println!("Set one for this repository with `shehata repos assign`.");
+        }
         println!("Next: assign an account with `shehata repos assign`. ");
         Ok(())
     }

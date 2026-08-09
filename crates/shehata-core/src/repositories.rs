@@ -32,6 +32,12 @@ pub struct RepositorySummary {
     pub assigned_login: Option<String>,
     pub commit_name: Option<String>,
     pub commit_email: Option<String>,
+    /// What commits would be authored as if this repository is connected
+    /// without choosing an identity. Present only when it sets none itself.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub inherited_commit_name: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub inherited_commit_email: Option<String>,
     pub push_policy: String,
     pub routing_configured: bool,
 }
@@ -174,6 +180,21 @@ fn routing_is_configured(
         && use_http_path.iter().any(|value| value == "true")
 }
 
+/// A summary for a repository that was just discovered.
+///
+/// Carries what the repository would inherit when it sets no identity of its
+/// own, so the caller can warn before that becomes the author of a commit.
+pub fn discovered_repository_summary(
+    db: &Database,
+    repo: RepositoryRecord,
+    discovered: &shehata_git::DiscoveredRepository,
+) -> Result<RepositorySummary> {
+    let mut summary = repository_summary(db, repo)?;
+    summary.inherited_commit_name = discovered.inherited_commit_name.clone();
+    summary.inherited_commit_email = discovered.inherited_commit_email.clone();
+    Ok(summary)
+}
+
 pub fn repository_summary(db: &Database, repo: RepositoryRecord) -> Result<RepositorySummary> {
     let assigned_login = repo
         .assigned_account_id
@@ -202,6 +223,10 @@ pub fn repository_summary(db: &Database, repo: RepositoryRecord) -> Result<Repos
         assigned_login,
         commit_name: repo.commit_name,
         commit_email: repo.commit_email,
+        // A stored repository has already been connected, so its identity is
+        // its own; there is nothing pending to warn about.
+        inherited_commit_name: None,
+        inherited_commit_email: None,
         push_policy: repo.push_policy,
         routing_configured: false,
     })
@@ -244,6 +269,8 @@ mod tests {
             },
             commit_name: Some("Test User".to_string()),
             commit_email: Some("test@example.com".to_string()),
+            inherited_commit_name: None,
+            inherited_commit_email: None,
             credential_helpers: Vec::new(),
             credential_use_http_path: None,
         }

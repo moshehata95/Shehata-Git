@@ -503,6 +503,8 @@ mod tests {
             assigned_login: Some("acme-dev".into()),
             commit_name: Some("Acme Dev".into()),
             commit_email: Some("dev@acme.example".into()),
+            inherited_commit_name: None,
+            inherited_commit_email: None,
             push_policy: "allow_normal_push".into(),
             routing_configured: true,
         }
