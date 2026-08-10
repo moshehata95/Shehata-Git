@@ -145,10 +145,22 @@ pub async fn list_repository_summaries_with_routing() -> Result<Vec<RepositorySu
         let permit = Arc::clone(&concurrency);
         checks.spawn(async move {
             let _permit = permit.acquire_owned().await.ok();
-            let (helpers, use_http_path) = tokio::join!(
+            // The identity is read from git rather than trusted from the
+            // database. The stored copy is a cache of what a repository had
+            // when it was last inspected, and a cache that goes stale here
+            // shows one account's author under another account's repository.
+            let (helpers, use_http_path, name, email) = tokio::join!(
                 shehata_git::read_local_config_values(&git, &path, "credential.helper"),
-                shehata_git::read_local_config_values(&git, &path, "credential.useHttpPath")
+                shehata_git::read_local_config_values(&git, &path, "credential.useHttpPath"),
+                shehata_git::read_local_config_values(&git, &path, "user.name"),
+                shehata_git::read_local_config_values(&git, &path, "user.email")
             );
+            let first = |values: std::result::Result<Vec<String>, _>| {
+                values
+                    .unwrap_or_default()
+                    .into_iter()
+                    .find(|value| !value.trim().is_empty())
+            };
             (
                 index,
                 routing_is_configured(
@@ -156,13 +168,17 @@ pub async fn list_repository_summaries_with_routing() -> Result<Vec<RepositorySu
                     &helpers.unwrap_or_default(),
                     &use_http_path.unwrap_or_default(),
                 ),
+                first(name),
+                first(email),
             )
         });
     }
 
     while let Some(result) = checks.join_next().await {
-        if let Ok((index, configured)) = result {
+        if let Ok((index, configured, name, email)) = result {
             repositories[index].routing_configured = configured;
+            repositories[index].commit_name = name;
+            repositories[index].commit_email = email;
         }
     }
     Ok(repositories)
@@ -240,6 +256,47 @@ mod tests {
     use shehata_storage::queries;
 
     use super::*;
+
+    /// A repository connected under 0.1.24 or 0.1.25 has an inherited identity
+    /// cached against it, because discovery reported one then. Listing must
+    /// show what the repository actually sets, or that stale value keeps
+    /// pre-filling the assignment form with an unrelated account's author.
+    #[tokio::test]
+    async fn listing_reports_the_identity_git_actually_has() {
+        let temp = tempfile::tempdir().unwrap();
+        let repo = temp.path().join("repo");
+        std::fs::create_dir_all(&repo).unwrap();
+        let git = shehata_git::GitRunner::locate().unwrap();
+        git.run_checked(Some(&repo), &["init", "-b", "main"])
+            .await
+            .unwrap();
+        git.run_checked(
+            Some(&repo),
+            &["config", "--local", "user.email", "real@example.com"],
+        )
+        .await
+        .unwrap();
+
+        let stored = shehata_git::read_local_config_values(&git, &repo, "user.email")
+            .await
+            .unwrap();
+        assert_eq!(stored.first().map(String::as_str), Some("real@example.com"));
+
+        // And a repository that sets none reports none, rather than the value
+        // it would inherit.
+        let bare = temp.path().join("bare");
+        std::fs::create_dir_all(&bare).unwrap();
+        git.run_checked(Some(&bare), &["init", "-b", "main"])
+            .await
+            .unwrap();
+        let none = shehata_git::read_local_config_values(&git, &bare, "user.email")
+            .await
+            .unwrap();
+        assert!(
+            none.iter().all(|value| value.trim().is_empty()),
+            "a repository that sets no identity must report none: {none:?}"
+        );
+    }
 
     fn discovery(path: PathBuf) -> DiscoveredRepository {
         DiscoveredRepository {

@@ -79,6 +79,25 @@ only in the manifests and had never been tagged or published, so each fix
 belonged in the same unreleased box. Publishing 0.1.23 and 0.1.24 minutes apart
 would have invented a version nobody could ever have run.
 
+## 2026-08-10 - v0.1.27 the fix that only fixed new data
+
+0.1.26 corrected discovery, and that looked like the end of it. Opening the
+assignment form for an already-connected repository still showed another
+client's email, because the wrong value had been written to the database days
+earlier and nothing re-read it.
+
+Worth separating: the bug was in the *code*, the damage was in the *data*. A
+code fix stops new damage and leaves the old, and a release note that says
+"fixed" while a stale row still drives the screen is not true.
+
+The stored author is a cache of git config, so the list now reads git instead
+of trusting it. That removes the class of problem rather than the instance: any
+future divergence, from any cause, resolves in favour of what git actually has.
+
+The cost is two extra config reads per repository, in a task that already reads
+two, at a concurrency of four. Not measurable next to the process spawn already
+happening there.
+
 ## 2026-08-10 - v0.1.26 a fix that created a worse bug
 
 Reported after connecting a repository and seeing an unrelated client's email

@@ -4,6 +4,22 @@ All notable changes to Shehata Git are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and versions follow
 [Semantic Versioning](https://semver.org/).
 
+## 0.1.27 - 2026-08-10
+
+### Fixed
+
+- **A repository connected under 0.1.24 or 0.1.25 no longer shows the wrong
+  author.** Those releases recorded the identity git resolved to, so a
+  repository that set none of its own had the global one — possibly another
+  client's — written into the local database. 0.1.26 stopped new repositories
+  being recorded that way but left the existing rows, so opening the assignment
+  form for one still offered the wrong author.
+
+  The repository list now reads the author from git rather than trusting the
+  stored copy. A cache that goes stale here shows one account's author under
+  another account's repository, which is precisely what must not happen, so
+  this value is no longer taken on trust.
+
 ## 0.1.26 - 2026-08-10
 
 ### Fixed
